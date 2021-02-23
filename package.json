@@ -28,7 +28,6 @@
     "build": "npx tsc --build tsconfig.es2015.json && npx tsc --build tsconfig.umd.json",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
-
   },
   "eslintConfig": {
     "extends": [

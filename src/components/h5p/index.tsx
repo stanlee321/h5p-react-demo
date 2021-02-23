@@ -50,9 +50,8 @@ class H5PService {
         contentId: string;
         metadata: IContentMetadata;
     }> {
-
+        // Check if is Function is loaded in app start up
         console.log("Tying to format coantent....savecontentCallback")
-
         return fetch('http://192.168.0.82:8080/contentModel')
             .then(res => res.json())
             .then(res => formatContent(res))
