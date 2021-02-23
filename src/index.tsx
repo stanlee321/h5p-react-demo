@@ -4,7 +4,12 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 
+// import { H5PEditorComponent } from '@lumieducation/h5p-webcomponents';
+
+// window.customElements.define('h5p-editor', H5PEditorComponent);
+
 ReactDOM.render(
+  
   <React.StrictMode>
     <App />
   </React.StrictMode>,
