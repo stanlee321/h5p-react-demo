@@ -14,7 +14,6 @@ declare global {
     namespace JSX {
         interface IntrinsicElements {
             'h5p-editor': {
-                'id': string,
                 'content-id'?: string;
                 'h5p-url'?: string;
                 ref?: any;
@@ -105,7 +104,6 @@ export default class H5PEditorUI extends React.Component<{
     public render(): React.ReactNode {
         return (
             <h5p-editor
-                id={this.props.id}
                 ref={this.h5pEditor}
                 content-id={this.props.contentId}
             ></h5p-editor>
