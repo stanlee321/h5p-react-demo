@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import ListGroupItem from 'react-bootstrap/ListGroupItem';
 import Container from 'react-bootstrap/Container';
 import Row from 'react-bootstrap/Row';
@@ -25,38 +25,18 @@ import { H5PEditorUI, H5PPlayerUI } from '@lumieducation/h5p-react';
 import { IContentListEntry, IContentService } from '../../../services/ContentService';
 import './ContentListEntryComponent.css';
 
-export default class ContentListEntryComponent extends React.Component<{
+type propsInput = {
     contentService: IContentService;
     data: IContentListEntry;
-    onDelete: (content: IContentListEntry) => void;
     onDiscard: (content: IContentListEntry) => void;
+    onDelete: (content: IContentListEntry) => void;
     onSaved: (data: IContentListEntry) => void;
     generateDownloadLink: (contentId: string) => string;
-}> {
-    constructor(props: {
-        contentService: IContentService;
-        data: IContentListEntry;
-        onDiscard: (content: IContentListEntry) => void;
-        onDelete: (content: IContentListEntry) => void;
-        onSaved: (data: IContentListEntry) => void;
-        generateDownloadLink: (contentId: string) => string;
-    }) {
-        super(props);
-        this.state = {
-            editing: props.data.contentId === 'new',
-            playing: false,
-            saving: false,
-            saved: false,
-            loading: true,
-            saveErrorMessage: '',
-            saveError: false
-        };
-        this.h5pEditor = React.createRef();
-        this.saveButton = React.createRef();
-        this.h5pPlayer = React.createRef();
-    }
+}
 
-    public state: {
+const  ContentListEntryComponent: React.FC<propsInput> = (props) => {
+
+    const [state, setState] = useState<{
         editing: boolean;
         loading: boolean;
         playing: boolean;
@@ -64,45 +44,114 @@ export default class ContentListEntryComponent extends React.Component<{
         saving: boolean;
         saveError: boolean;
         saveErrorMessage: string;
+    }>({
+        editing: props.data.contentId === 'new',
+        playing: false,
+        saving: false,
+        saved: false,
+        loading: true,
+        saveErrorMessage: '',
+        saveError: false
+    })
+    
+    const h5pPlayer : React.RefObject<H5PPlayerUI> = React.createRef(); 
+    const h5pEditor : React.RefObject<H5PEditorUI> = React.createRef();
+    const saveButton : React.RefObject<HTMLButtonElement> = React.createRef();
+
+    const play = () => {
+
+        setState({...state, editing: false, playing: true })
+    }
+
+    const edit = () => {
+        setState( {...state, editing: true, playing: false  })
+    }
+
+    const close = () => {
+        setState({...state, editing: false, playing: false  });
+    }
+
+    const onPlayerInitialized = () => {
+        
+        setState({...state, loading: false  });
     };
 
-    private h5pPlayer: React.RefObject<H5PPlayerUI>;
-    private h5pEditor: React.RefObject<H5PEditorUI>;
-    private saveButton: React.RefObject<HTMLButtonElement>;
+    const save = async () => {
+        setState({...state, saving: true })
 
-    public render(): React.ReactNode {
-        return (
+        try {
+            const returnData = await h5pEditor.current?.save();
+            if (returnData) {
+                await props.onSaved({
+                    contentId: returnData.contentId,
+                    mainLibrary: returnData.metadata.mainLibrary,
+                    title: returnData.metadata.title,
+                    originalNewKey: props.data.originalNewKey
+                });
+            }
+        } catch (error) {
+            // We ignore the error, as we subscribe to the 'save-error' and
+            // 'validation-error' events.
+        }
+    }
+
+    const onSaveError = async (event) => {
+
+        setState({...state, saving: false,  saved: false, saveError: true,saveErrorMessage: event.detail.message });
+       
+        setTimeout(() => {
+            setState( {...state, saveError: false } );
+        }, 5000);
+    };
+
+    const onSaved = async (event) => {
+        setState({...state, saving: false,saved: true  });
+        setTimeout(() => {
+            setState({...state, saved: false  });
+        }, 3000);
+    };
+
+    const  onEditorLoaded = () => {
+        setState({...state, loading: false });
+    };
+
+    const  isNew = () => {
+        return props.data.contentId === 'new';
+    }
+
+
+    return (
             <ListGroupItem
                 key={
-                    this.props.data.originalNewKey ?? this.props.data.contentId
+                    props.data.originalNewKey ?? props.data.contentId
                 }
             >
                 <Container>
                     <Row>
                         <Col className="p-2">
-                            <h5>{this.props.data.title}</h5>
+                            <h5>{props.data.title}</h5>
                             <Row className="small">
                                 <Col className="mr-2" lg="auto">
                                     <FontAwesomeIcon
                                         icon={faBookOpen}
                                         className="mr-1"
                                     />
-                                    {this.props.data.mainLibrary}
+                                    {props.data.mainLibrary}
                                 </Col>
                                 <Col className="mr-2" lg="auto">
                                     <FontAwesomeIcon
                                         icon={faFingerprint}
                                         className="mr-1"
                                     />
-                                    {this.props.data.contentId}
+                                    {props.data.contentId}
                                 </Col>
                             </Row>
                         </Col>
-                        {this.state.playing ? (
+                        {state.playing ? (
                             <Col className="p-2" lg="auto">
                                 <Button
                                     variant="light"
-                                    onClick={() => this.close()}
+                                    onClick={() => close()}
                                     block
                                 >
                                     <FontAwesomeIcon
@@ -113,32 +162,32 @@ export default class ContentListEntryComponent extends React.Component<{
                                 </Button>
                             </Col>
                         ) : undefined}
-                        {this.state.editing ? (
+                        {state.editing ? (
                             <Col className="p-2" lg="auto">
                                 <Overlay
-                                    target={this.saveButton.current}
-                                    show={this.state.saveError}
+                                    target={saveButton.current}
+                                    show={state.saveError}
                                     placement="right"
                                 >
                                     <Tooltip id="error-tooltip">
-                                        {this.state.saveErrorMessage}
+                                        {state.saveErrorMessage}
                                     </Tooltip>
                                 </Overlay>
                                 <Button
-                                    ref={this.saveButton}
+                                    ref={saveButton}
                                     variant="primary"
                                     className={
-                                        this.state.saving || this.state.loading
+                                        state.saving || state.loading
                                             ? 'disabled'
                                             : ''
                                     }
                                     disabled={
-                                        this.state.saving || this.state.loading
+                                        state.saving || state.loading
                                     }
-                                    onClick={() => this.save()}
+                                    onClick={() => save()}
                                     block
                                 >
-                                    {this.state.saving ? (
+                                    {state.saving ? (
                                         <div
                                             className="spinner-border spinner-border-sm m-1 align-middle"
                                             role="status"
@@ -150,7 +199,7 @@ export default class ContentListEntryComponent extends React.Component<{
                                         />
                                     )}{' '}
                                     save{' '}
-                                    {this.state.saved ? (
+                                    {state.saved ? (
                                         <FontAwesomeIcon
                                             icon={faCheck}
                                             className="mr-2"
@@ -159,12 +208,12 @@ export default class ContentListEntryComponent extends React.Component<{
                                 </Button>
                             </Col>
                         ) : undefined}
-                        {this.state.editing && !this.isNew() ? (
+                        {state.editing && !isNew() ? (
                             <Col className="p-2" lg="auto">
                                 <Button
                                     variant="light"
                                     block
-                                    onClick={() => this.close()}
+                                    onClick={() => close()}
                                 >
                                     <FontAwesomeIcon
                                         icon={faWindowClose}
@@ -174,13 +223,13 @@ export default class ContentListEntryComponent extends React.Component<{
                                 </Button>
                             </Col>
                         ) : undefined}
-                        {this.state.editing && this.isNew() ? (
+                        {state.editing && isNew() ? (
                             <Col className="p-2" lg="auto">
                                 <Button
                                     variant="light"
                                     block
                                     onClick={() =>
-                                        this.props.onDiscard(this.props.data)
+                                        props.onDiscard(props.data)
                                     }
                                 >
                                     <FontAwesomeIcon
@@ -191,13 +240,13 @@ export default class ContentListEntryComponent extends React.Component<{
                                 </Button>
                             </Col>
                         ) : undefined}
-                        {!this.isNew() ? (
+                        {!isNew() ? (
                             <React.Fragment>
                                 <Col className="p-2" lg="auto">
                                     <Button
                                         variant="success"
                                         block
-                                        onClick={() => this.play()}
+                                        onClick={() => play()}
                                     >
                                         <FontAwesomeIcon
                                             icon={faPlay}
@@ -210,7 +259,7 @@ export default class ContentListEntryComponent extends React.Component<{
                                     <Button
                                         variant="secondary"
                                         block
-                                        onClick={() => this.edit()}
+                                        onClick={() => edit()}
                                     >
                                         <FontAwesomeIcon
                                             icon={faPencilAlt}
@@ -221,8 +270,8 @@ export default class ContentListEntryComponent extends React.Component<{
                                 </Col>{' '}
                                 <Col className="p-2" lg="auto">
                                     <a
-                                        href={this.props.generateDownloadLink(
-                                            this.props.data.contentId
+                                        href={props.generateDownloadLink(
+                                            props.data.contentId
                                         )}
                                     >
                                         <Button variant="info" block>
@@ -239,7 +288,7 @@ export default class ContentListEntryComponent extends React.Component<{
                                         variant="danger"
                                         block
                                         onClick={() =>
-                                            this.props.onDelete(this.props.data)
+                                            props.onDelete(props.data)
                                         }
                                     >
                                         <FontAwesomeIcon
@@ -253,37 +302,37 @@ export default class ContentListEntryComponent extends React.Component<{
                         ) : undefined}
                     </Row>
                 </Container>
-                {this.state.editing ? (
+                {state.editing ? (
                     <div
                         className={
-                            this.props.data.contentId !== 'new' &&
-                            this.state.loading
+                            props.data.contentId !== 'new' &&
+                            state.loading
                                 ? 'loading'
                                 : ''
                         }
                     >
                         <H5PEditorUI
-                            ref={this.h5pEditor}
-                            contentId={this.props.data.contentId}
+                            ref={h5pEditor}
+                            contentId={props.data.contentId}
                             loadContentCallback={
-                                this.props.contentService.getEdit
+                                props.contentService.getEdit
                             }
-                            saveContentCallback={this.props.contentService.save}
-                            onSaved={this.onSaved}
-                            onLoaded={this.onEditorLoaded}
-                            onSaveError={this.onSaveError}
+                            saveContentCallback={props.contentService.save}
+                            onSaved={onSaved}
+                            onLoaded={onEditorLoaded}
+                            onSaveError={onSaveError}
                         />
                     </div>
                 ) : undefined}
-                {this.state.playing ? (
-                    <div className={this.state.loading ? 'loading' : ''}>
+                {state.playing ? (
+                    <div className={state.loading ? 'loading' : ''}>
                         <H5PPlayerUI
-                            ref={this.h5pPlayer}
-                            contentId={this.props.data.contentId}
+                            ref={h5pPlayer}
+                            contentId={props.data.contentId}
                             loadContentCallback={
-                                this.props.contentService.getPlay
+                                props.contentService.getPlay
                             }
-                            onInitialized={this.onPlayerInitialized}
+                            onInitialized={onPlayerInitialized}
                             // xAPICallback={(
                             //     statement: any,
                             //     context: any,
@@ -292,7 +341,7 @@ export default class ContentListEntryComponent extends React.Component<{
                         />
                         <div
                             style={{
-                                visibility: this.state.loading
+                                visibility: state.loading
                                     ? 'visible'
                                     : 'collapse'
                             }}
@@ -305,69 +354,4 @@ export default class ContentListEntryComponent extends React.Component<{
         );
     }
 
-    protected play() {
-        this.setState({ editing: false, playing: true });
-    }
-
-    protected edit() {
-        this.setState({ editing: true, playing: false });
-    }
-
-    protected close() {
-        this.setState({ editing: false, playing: false });
-    }
-
-    private onPlayerInitialized = () => {
-        this.setState({ loading: false });
-    };
-
-    protected async save() {
-        this.setState({ saving: true });
-        try {
-            const returnData = await this.h5pEditor.current?.save();
-            if (returnData) {
-                await this.props.onSaved({
-                    contentId: returnData.contentId,
-                    mainLibrary: returnData.metadata.mainLibrary,
-                    title: returnData.metadata.title,
-                    originalNewKey: this.props.data.originalNewKey
-                });
-            }
-        } catch (error) {
-            // We ignore the error, as we subscribe to the 'save-error' and
-            // 'validation-error' events.
-        }
-    }
-
-    protected onSaveError = async (event) => {
-        this.setState({
-            saving: false,
-            saved: false,
-            saveError: true,
-            saveErrorMessage: event.detail.message
-        });
-        setTimeout(() => {
-            this.setState({
-                saveError: false
-            });
-        }, 5000);
-    };
-
-    protected onSaved = async (event) => {
-        this.setState({
-            saving: false,
-            saved: true
-        });
-        setTimeout(() => {
-            this.setState({ saved: false });
-        }, 3000);
-    };
-
-    protected onEditorLoaded = () => {
-        this.setState({ loading: false });
-    };
-
-    private isNew() {
-        return this.props.data.contentId === 'new';
-    }
-}
+export default ContentListEntryComponent;
